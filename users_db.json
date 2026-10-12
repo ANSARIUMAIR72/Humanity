@@ -1,0 +1,23 @@
+{
+  "user1": {
+    "user_id": "user1",
+    "name": "Beshoy",
+    "email": "hanenbeshoy@gmail.com",
+    "password": "Beshoy@1985",
+    "employee_id": "7474660"
+  },
+  "user2": {
+    "user_id": "user2",
+    "name": "Sarah M.",
+    "email": "sarah@gmail.com",
+    "password": "SarahPassword123",
+    "employee_id": "1234567"
+  },
+  "user3": {
+    "user_id": "user3",
+    "name": "John D.",
+    "email": "john@gmail.com",
+    "password": "JohnPassword123",
+    "employee_id": "7654321"
+  }
+}
