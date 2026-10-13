@@ -31,7 +31,7 @@ def add_log(user_id: str, message: str):
     if len(user_logs[user_id]) > 50:
         user_logs[user_id].pop(0)
         
-    print(f"[{user_id}] {log_entry}")
+    print(f"[{user_id}] {log_entry}", flush=True)
 
 class HumanityBot:
     def __init__(self, user_config: dict, schedule_config: dict, max_shifts: int):
@@ -120,6 +120,8 @@ class HumanityBot:
                         add_log(self.user_id, "✅ Login successful! Session saved.")
                     except Exception as login_error:
                         add_log(self.user_id, f"❌ Login failed: {login_error}")
+                        if os.path.exists(self.state_file):
+                            os.remove(self.state_file)
                         await browser.close()
                         return
 
@@ -131,7 +133,13 @@ class HumanityBot:
                     await asyncio.wait_for(self.tokens_acquired.wait(), timeout=10.0)
                     add_log(self.user_id, "🔐 Security tokens captured!")
                 except asyncio.TimeoutError:
-                    add_log(self.user_id, f"❌ Token capture timed out. Delete {self.state_file} & restart.")
+                    add_log(self.user_id, f"❌ Token capture timed out. Deleting broken session file ({self.state_file})...")
+                    if os.path.exists(self.state_file):
+                        try:
+                            os.remove(self.state_file)
+                            add_log(self.user_id, f"🗑️ Deleted broken session file. Next run will log in fresh.")
+                        except Exception as del_err:
+                            add_log(self.user_id, f"⚠️ Failed to delete session file: {del_err}")
                     await browser.close()
                     return
 
@@ -262,6 +270,7 @@ async def home():
             .day-row input {{ flex: 1; margin: 0; }}
             .btn-start {{ background: #007bff; color: white; border: none; font-weight: bold; margin-top: 15px; font-size: 18px; cursor: pointer; padding: 12px; }}
             .btn-stop {{ background: #dc3545; color: white; border: none; font-weight: bold; margin-top: 10px; font-size: 18px; cursor: pointer; padding: 12px; }}
+            .btn-clear {{ background: #ff9800; color: white; border: none; font-weight: bold; margin-top: 10px; font-size: 16px; cursor: pointer; padding: 10px; }}
             .console-box {{ background: #1e1e1e; color: #00ff66; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px; height: 180px; overflow-y: auto; white-space: pre-wrap; margin-top: 10px; }}
         </style>
     </head>
@@ -299,6 +308,14 @@ async def home():
                     {user_options}
                 </select>
                 <button type="submit" class="btn-stop">🛑 Stop Selected Bot</button>
+            </form>
+
+            <form action="/clear-session" method="post">
+                <label style="margin-top:20px;">Reset Login / Cookies:</label>
+                <select name="user_id" required>
+                    {user_options}
+                </select>
+                <button type="submit" class="btn-clear">🔄 Clear Saved Session</button>
             </form>
 
             <hr style="margin-top: 20px; border: 0; border-top: 1px solid #eee;">
@@ -366,6 +383,41 @@ async def stop(user_id: str = Form(...)):
         <body style="font-family: sans-serif; text-align: center; padding: 40px; background: #f0f2f5;">
             <div style="background: white; padding: 30px; border-radius: 12px; display: inline-block;">
                 <h2>{msg}</h2>
+                <a href="/" style="display: inline-block; margin-top: 15px; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 6px;">Back to Dashboard</a>
+            </div>
+        </body>
+    </html>
+    """)
+
+@app.post("/clear-session")
+async def clear_session(user_id: str = Form(...)):
+    with open("users_db.json") as f:
+        users = json.load(f)
+    
+    user_name = users.get(user_id, {}).get("name", user_id)
+    session_file = f"sessions/session_{user_id}.json"
+    
+    # Cancel active task if running
+    if user_id in active_tasks:
+        active_tasks[user_id].cancel()
+        active_tasks.pop(user_id, None)
+
+    if os.path.exists(session_file):
+        try:
+            os.remove(session_file)
+            add_log(user_id, f"🗑️ Session file ({session_file}) deleted manually by user.")
+            msg = f"🗑️ Saved session & cookies cleared for <b>{user_name}</b>!"
+        except Exception as e:
+            msg = f"⚠️ Could not delete session file: {e}"
+    else:
+        msg = f"ℹ️ No saved session file found for <b>{user_name}</b>."
+
+    return HTMLResponse(content=f"""
+    <html>
+        <body style="font-family: sans-serif; text-align: center; padding: 40px; background: #f0f2f5;">
+            <div style="background: white; padding: 30px; border-radius: 12px; display: inline-block;">
+                <h2>{msg}</h2>
+                <p>The next time you start the bot for {user_name}, it will perform a fresh login.</p>
                 <a href="/" style="display: inline-block; margin-top: 15px; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 6px;">Back to Dashboard</a>
             </div>
         </body>
