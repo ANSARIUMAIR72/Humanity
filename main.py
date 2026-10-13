@@ -175,10 +175,18 @@ class HumanityBot:
                                     
                                 title = str(shift.get("title", "")).upper()
                                 notes = str(shift.get("notes", "")).upper()
+                                
+                                # 🛡️ Filter 1: Skip Training
                                 if "TRAINING" in title or "TRAINING" in notes:
                                     add_log(self.user_id, f"⏭️ Skipped Shift {shift_id} ('TRAINING' keyword).")
                                     continue 
                                     
+                                # 🛡️ Filter 2: Skip Kitchen shifts (e.g. 'Kitchen Notes DRA')
+                                if "KITCHEN" in title or "KITCHEN" in notes:
+                                    add_log(self.user_id, f"⏭️ Skipped Shift {shift_id} ('KITCHEN' keyword).")
+                                    continue 
+                                    
+                                # 🛡️ Filter 3: Check Schedule Hours
                                 if not self.is_shift_allowed(start_local, end_local):
                                     add_log(self.user_id, f"⏭️ Skipped Shift {shift_id} (Outside hours: {start_local.strftime('%A %H:%M')}).")
                                     continue
